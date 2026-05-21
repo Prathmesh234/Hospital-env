@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospital-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hospital}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hospital_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-hospital}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hospital} -d ${POSTGRES_DB:-hospital}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: hospital-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-hospital}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-hospital_dev_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-hospital_docs}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  mongodata:
