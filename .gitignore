@@ -51,3 +51,5 @@ mongodata/
 # Seed workbooks (don't commit potentially-sensitive synthetic data)
 *.xlsx
 !docs/**/*.xlsx
+!seeds/*.xlsx
+!seeds/**/*.xlsx
