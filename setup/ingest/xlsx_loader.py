@@ -166,46 +166,66 @@ def _rows_for_sheet(df: pd.DataFrame, table) -> list[dict[str, Any]]:
     return rows
 
 
+def _collect_sheet_index(path: Path) -> dict[str, tuple[Path, pd.ExcelFile]]:
+    """Build a {sheet_name: (file_path, ExcelFile)} index.
+
+    If ``path`` is a file, only that workbook is opened. If it's a directory,
+    every ``*.xlsx`` file in the directory (recursively) is opened. If multiple
+    workbooks contain the same sheet name, the alphabetically-first file wins
+    and the others are ignored for that sheet.
+    """
+    if path.is_dir():
+        files = sorted(p for p in path.rglob("*.xlsx") if not p.name.startswith("~$"))
+    else:
+        files = [path]
+    if not files:
+        raise FileNotFoundError(f"No xlsx files found at {path}")
+
+    index: dict[str, tuple[Path, pd.ExcelFile]] = {}
+    for f in files:
+        xls = pd.ExcelFile(f)
+        for sheet in xls.sheet_names:
+            index.setdefault(sheet, (f, xls))
+    return index
+
+
 def load_workbook(session: Session, path: str | Path) -> dict[str, int]:
-    """Load an xlsx file into the hospital database. Returns rows-per-table counts."""
+    """Load an xlsx file (or directory of xlsx files) into the hospital database.
+
+    Returns a ``{table_name: row_count}`` dict.
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(path)
 
-    xls = pd.ExcelFile(path)
-    available = set(xls.sheet_names)
+    sheet_index = _collect_sheet_index(path)
+    available = set(sheet_index.keys())
     counts: dict[str, int] = {}
 
     tables_by_name = {t.name: t for t in Base.metadata.sorted_tables}
 
-    for table_name in LOAD_ORDER:
+    def _load(table_name: str) -> None:
         if table_name not in available or table_name not in tables_by_name:
-            continue
+            return
+        _, xls = sheet_index[table_name]
         df = xls.parse(table_name, dtype=object)
         if df.empty:
             counts[table_name] = 0
-            continue
+            return
         df = df.where(df.notna(), None)
         rows = _rows_for_sheet(df, tables_by_name[table_name])
         if not rows:
             counts[table_name] = 0
-            continue
+            return
         session.execute(tables_by_name[table_name].insert(), rows)
         counts[table_name] = len(rows)
 
+    for table_name in LOAD_ORDER:
+        _load(table_name)
+
     leftover = sorted(available - set(LOAD_ORDER))
-    if leftover:
-        # Best-effort load for catalog sheets we don't know about
-        for table_name in leftover:
-            if table_name not in tables_by_name:
-                continue
-            df = xls.parse(table_name, dtype=object)
-            if df.empty:
-                continue
-            df = df.where(df.notna(), None)
-            rows = _rows_for_sheet(df, tables_by_name[table_name])
-            session.execute(tables_by_name[table_name].insert(), rows)
-            counts[table_name] = len(rows)
+    for table_name in leftover:
+        _load(table_name)
 
     session.commit()
     return counts
@@ -217,9 +237,13 @@ def list_expected_sheets() -> list[str]:
 
 
 def diff_workbook(path: str | Path) -> dict[str, list[str]]:
-    """Report missing / extra sheets compared to the canonical load order."""
-    xls = pd.ExcelFile(path)
-    available = set(xls.sheet_names)
+    """Report missing / extra sheets compared to the canonical load order.
+
+    Accepts either a single xlsx file or a directory of xlsx files.
+    """
+    path = Path(path)
+    sheet_index = _collect_sheet_index(path)
+    available = set(sheet_index.keys())
     expected = set(LOAD_ORDER)
     return {
         "missing_sheets": sorted(expected - available),
