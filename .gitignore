@@ -48,6 +48,10 @@ data/
 pgdata/
 mongodata/
 
+# Agent/eval session artifacts
+.hospital-api.pid
+evals/results/
+
 # Seed workbooks (don't commit potentially-sensitive synthetic data)
 *.xlsx
 !docs/**/*.xlsx
