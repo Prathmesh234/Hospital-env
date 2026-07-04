@@ -235,5 +235,5 @@ class PatientStatement(Base, TimestampMixin):
     adjustments_total: Mapped[float | None] = mapped_column(Numeric(12, 2))
     current_balance: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     due_date: Mapped[date | None] = mapped_column(Date)
-    status: Mapped[str | None] = mapped_column(String(16))
+    status: Mapped[str | None] = mapped_column(String(32))
     delivery_method: Mapped[str | None] = mapped_column(String(16))
