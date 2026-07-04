@@ -10,6 +10,8 @@ from rich.console import Console
 from rich.table import Table
 from sqlalchemy import text
 
+from evals.cli import task_app
+from setup.agent.cli import agent_app
 from setup.config import get_settings
 from setup.db.mongo import get_sync_db
 from setup.db.postgres import get_engine, get_session_factory
@@ -21,6 +23,8 @@ app = typer.Typer(
     help="Hospital-env CLI — schema setup, data loading, and API server.",
     no_args_is_help=True,
 )
+app.add_typer(agent_app, name="agent")
+app.add_typer(task_app, name="task")
 console = Console()
 
 
@@ -76,6 +80,20 @@ def load(
         table.add_row(name, str(count))
     console.print(table)
     console.print(f"[green]✓ Loaded {sum(counts.values())} rows across {len(counts)} tables.[/green]")
+
+
+@app.command("seed-mongo")
+def seed_mongo() -> None:
+    """Derive and load the MongoDB document collections from the PostgreSQL rows.
+
+    Deterministic: reruns wipe and regenerate identical documents.
+    """
+    from setup.nosql.seed_docs import seed_documents
+
+    counts = seed_documents(get_engine(), get_sync_db())
+    for name, count in counts.items():
+        console.print(f"  • {name}: {count} documents")
+    console.print(f"[green]✓ Seeded {sum(counts.values())} documents across {len(counts)} collections.[/green]")
 
 
 @app.command("diff-workbook")
