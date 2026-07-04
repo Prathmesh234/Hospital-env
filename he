@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# he — hospital-env launcher.
+#
+# Thin wrapper around `python -m setup.cli` that always runs from the repo
+# root with the project virtualenv. This deliberately avoids the console
+# script + editable-install .pth mechanism, which breaks on iCloud-synced
+# macOS folders (fileproviderd re-flags .pth files as hidden and CPython
+# then skips them at startup).
+#
+# Usage:  ./he <command> [args…]        e.g.  ./he agent sql "SELECT 1"
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON="$REPO_ROOT/.venv/bin/python"
+
+if [[ ! -x "$PYTHON" ]]; then
+    echo "error: $PYTHON not found — run 'uv sync' first (see README)." >&2
+    exit 1
+fi
+
+cd "$REPO_ROOT"
+exec "$PYTHON" -m setup.cli "$@"
