@@ -64,6 +64,11 @@ uv run hospital-env serve
 
 ## Agent access (terminal)
 
+> Running an agent harness (opencode, Claude Code, aider, …) against this
+> repo? The root [`AGENTS.md`](AGENTS.md) is the drop-in briefing most
+> harnesses auto-load — it contains the bootstrap, the tool reference, the
+> eval protocol, and the integrity rules.
+
 Agents work the environment through a read-only tool surface (full guide:
 [`docs/agent_interface.md`](docs/agent_interface.md)). The `./he` launcher is
 equivalent to `uv run hospital-env`, but immune to iCloud/`.pth` weirdness:
